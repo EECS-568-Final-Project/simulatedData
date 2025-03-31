@@ -70,18 +70,63 @@ class SinPath:
     def sample(self, t: float) -> Pose:
         return Pose.from_euler(np.zero((3,)), Vec3(sin(t), cos(t), sin(t + 1)))
 
-def generate_data(path: Path, sensor_noise: SensorNoise, sample_rate: float) -> list[SensorData]:
-    NOISY_sensorData = []
 
-    BIAS = Vec3(x=0.01, y=0.01, z=0.01)
+def generate_data(path: Path, sensor_noise: SensorNoise, sample_rate: float) -> list[SensorData]:
+
+    def velocity(pose1: Pose, pose2: Pose, dt: float):
+        pos1 = pose1.matrix[:3, 3]
+        pos2 = pose2.matrix[:3, 3]
+        return (pos2 - pos1) / dt
+
+    pose_data = []
+    NOISY_sensorData = []
     
-    for i in range(0, 5 * sample_rate + 1):
-        time = i / sample_rate
-        pose = path.sample(time)
-        noisyPosition, noisyData = sensor_noise.add_noise(BIAS, )
-        NOISY_sensorData.append(noisyData)
-        
+    for i in range(0, 5, 1/sample_rate):
+        pose = path.sample(i)
+        pose_data.append(pose)
+
+    
+
+    # TODO: Need to do angular velocity
+    '''
+        * Currently just taking the differnece between 2 points to find sensor data
+        * We can change it to use derivatives instead if we want
+    '''
+    prev_pose, prev_velocity = None
+    for time, i in enumerate(pose_data):
+        # Is it the first point of data?
+        if prev_pose is None:
+            prev_pose = i
+            continue
+
+        curVelocity = velocity(prev_pose, i, 1/sample_rate)
+
+        # Can we calculate linear acceleration
+        if prev_velocity is None:
+            prev_velocity = curVelocity
+            continue
+
+        acc = (curVelocity - prev_velocity) / (1/sample_rate)
+
+
+        # Reset Vars for next iteration
+        SensorData = SensorData(time/sample_rate,
+                                curVelocity,
+                                acc,
+                                Vec3(0, 0, 0),
+                                0)
+        prev_pose = i
+        prev_velocity = curVelocity
+
+
+        # Do we want the noise to propogate through the data?
+        # Currently noise is applied on true sensor data
+        NOISY_sensorData.append(sensor_noise.add_noise(SensorData))
+
+
+
     return NOISY_sensorData
+
         
 
 def plotPath(estimatedPoses, truePoses):
@@ -120,8 +165,4 @@ def runPATH(path: Path, sensorNoise: SensorNoise, sample_rate: float):
 
 
 
-runPATH(SimplePath, SensorNoise, 0.05)runPATH(SimplePath, SensorNoise)amth(noisyPath, truePos, se)
-
-
-
-runPATH(SimplePath, SensorNoise)
+runPATH(SimplePath, SensorNoise, 0.05)
