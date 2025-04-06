@@ -262,5 +262,15 @@ def main():
     plotPath(estimatedPoses, truePoses)
     print("Done generating data")
 
+    # Save data to file
+    with open("data/sensor_data_largeCov.csv", "w") as f:
+        f.write("time, dvl_x, dvl_y, dvl_z, lin_acc_x, lin_acc_y, lin_acc_z, ang_vel_x, ang_vel_y, ang_vel_z, depth\n")
+        for datum in data:
+            f.write(f"{datum.time:.2f}, {datum.dvl.x:.2f}, {datum.dvl.y:.2f}, {datum.dvl.z:.2f}, "
+                    f"{datum.lin_acc.x:.2f}, {datum.lin_acc.y:.2f}, {datum.lin_acc.z:.2f}, "
+                    f"{datum.ang_vel.x:.2f}, {datum.ang_vel.y:.2f}, {datum.ang_vel.z:.2f}, "
+                    f"{datum.depth:.2f}\n")
+
+
 if __name__ == "__main__":
     main()
