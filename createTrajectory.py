@@ -145,27 +145,30 @@ class SinPath:
         return Pose.from_euler(Vec3(sin(t), cos(t), sin(t + 1)), Vec3(0, 0, 0))
 
 def generate_data(
-        path: Path, sensor_noise: SensorNoise, sample_rate: float, start_time: float = 0, end_time: float = 10,
-) -> list[SensorData]:
+        path: Path, sensor_noise: SensorNoise, sample_period: float, start_time: float = 0, end_time: float = 10,
+) -> tuple[list[SensorData], list[Vec3]]:
     sensor_data = []
 
     duration = end_time - start_time
-    num_samples = floor(duration * sample_rate)
-    step = duration / sample_rate
+    num_samples = floor(duration / sample_period)
     assert num_samples >= 3, "Must have 3 or more samples"
 
+    current_pose = path.sample(start_time)
+    current_position = current_pose.position
+    estimated_positions = [current_position]
+
     for i in tqdm(range(0, num_samples)):
-        time = start_time + duration * (i / num_samples)
+        time = start_time + sample_period * i
 
         pose = path.sample(time)
-        prev = path.sample(time - step / 10)
-        next = path.sample(time + step / 10)
+        prev = path.sample(time - sample_period)
+        next = path.sample(time + sample_period)
 
-        derivative = (next.matrix - pose.matrix) / (step / 10)
+        derivative = (next.matrix - pose.matrix) / sample_period
         vel = Vec3.from_matrix(derivative[:3, 3])
-        prev_vel = (pose.position - prev.position) / (step / 10)
+        prev_vel = (pose.position - prev.position) / sample_period
 
-        lin_acc = (vel - prev_vel) / (step / 10)
+        lin_acc = (vel - prev_vel) / sample_period
         twist = derivative @ pose.inverse().matrix
         ang_vel = vee3(twist[:3, :3])
 
@@ -180,33 +183,84 @@ def generate_data(
         datum.floatify()
         sensor_data.append(datum)
 
-    return sensor_data
+        #Update position using noisy velocity 
+        current_position += datum.dvl * sample_period
+        estimated_positions.append(current_position) 
 
+    return sensor_data, estimated_positions
+    
+def plotPath(estimatedPoses: list[Vec3], truePoses: list[Vec3]) -> None:
 
-def plotPath(estimatedPoses, truePoses):
+    # Plot each axis separately
+    fig, axs = plt.subplots(3, 1, figsize=(10, 10))
+    fig.suptitle("Noisy Robot Path")
+    fig.subplots_adjust(hspace=0.5)
+    labels = ["X", "Y", "Z"]
 
-    # TODO: fix this to be 3 separate graphs for rotation
+    axs[0].set_xlabel("Time")
+    axs[0].set_ylabel("X")
+    axs[0].plot(
+        [pose.x for pose in estimatedPoses],
+        label="Estimated Path",
+    )
+    axs[0].plot(
+        [pose.x for pose in truePoses],
+        label="True Path",
+    )
 
-    fig = plt.figure(figsize=(10, 10))
-    ax = fig.add_subplot(111, projection="3d")
+    axs[1].set_xlabel("Time")
+    axs[1].set_ylabel("Y")
+    axs[1].plot(
+        [pose.y for pose in estimatedPoses],
+        label="Estimated Path",
+    )
+    axs[1].plot(
+        [pose.y for pose in truePoses],
+        label="True Path",
+    )
 
-    ax.plot(*zip(*[(p.x, p.y, p.z) for p in estimatedPoses]), label="Esimtated Path")
-    ax.plot(*zip(*[(p.x, p.y, p.z) for p in truePoses]), label="True Path")
-
-    ax.set_xlabel("X")
-    ax.set_ylabel("Y")
-    ax.set_zlabel("Z")
-
-    ax.set_title("Noisy Robot Path")
-    ax.legend()
+    axs[2].set_xlabel("Time")
+    axs[2].set_ylabel("Z")
+    axs[2].plot(
+        [pose.z for pose in estimatedPoses],
+        label="Estimated Path",
+    )
+    axs[2].plot(
+        [pose.z for pose in truePoses],
+        label="True Path",
+    )
+    for i, ax in enumerate(axs):
+        ax.set_title(f"Path in {labels[i]} direction")
+        ax.legend()
+        ax.grid()
     plt.show()
 
 def main():
-    zero = np.zeros((3, 3))
-    noise = SensorNoise(zero, zero, zero, 0, zero, zero)
-    path = SimplePath()
-    data = generate_data(path, noise, 5)
+    large_cov = True
 
+    if large_cov:
+        # Define larger covariance matrices and standard deviation for some noise
+        low_noise_cov = np.eye(3) * 0.1
+        low_depth_std = 0.1
+        noise = SensorNoise(low_noise_cov, low_noise_cov, low_noise_cov, low_depth_std, low_noise_cov, low_noise_cov)
+
+    else:   # Use default noise (no noise)
+        zero = np.zeros((3, 3))
+        noise = SensorNoise(zero, zero, zero, 0, zero, zero)
+
+    path = SinPath()
+    
+    data, estimatedPoses = generate_data(path, noise, 0.1)
+    
+    # True path is path.sample(time) for each time in data
+    truePoses = [path.sample(datum.time).position for datum in data]
+
+    print("Generated data:")
+    for datum in data:
+        print(f"t: {datum.time:.2f}, dvl: {datum.dvl}, lin_acc: {datum.lin_acc}, ang_vel: {datum.ang_vel}, depth: {datum.depth:.2f}")
+    
+    plotPath(estimatedPoses, truePoses)
+    print("Done generating data")
 
 if __name__ == "__main__":
     main()
