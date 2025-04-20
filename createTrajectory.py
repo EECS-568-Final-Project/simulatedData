@@ -260,8 +260,8 @@ def main():
 
     if large_cov:
         # Define larger covariance matrices and standard deviation for some noise
-        low_noise_cov = np.eye(3) * 0.1
-        low_depth_std = 0.1
+        low_noise_cov = np.eye(3) * 10
+        low_depth_std = 6
         noise = SensorNoise(
             low_noise_cov,
             low_noise_cov,
@@ -283,27 +283,27 @@ def main():
     # True path is path.sample(time) for each time in data
     truePoses = [path.sample(datum.time).position for datum in data]
 
-    print("Generated data:")
-    for datum in data:
-        print(
-            f"t: {datum.time:.2f}, dvl: {datum.dvl}, lin_acc: {datum.lin_acc}, ang_vel: {datum.ang_vel}, depth: {datum.depth:.2f}"
-        )
+    # print("Generated data:")
+    # for datum in data:
+    #     print(
+    #         f"t: {datum.time:.2f}, dvl: {datum.dvl}, lin_acc: {datum.lin_acc}, ang_vel: {datum.ang_vel}, depth: {datum.depth:.2f}"
+    #     )
 
     plotPath(estimatedPoses, truePoses)
     print("Done generating data")
 
     # Save data to file
-    with open("data/sensor_data_largeCov.csv", "w") as f:
-        f.write(
-            "time, dvl_x, dvl_y, dvl_z, lin_acc_x, lin_acc_y, lin_acc_z, ang_vel_x, ang_vel_y, ang_vel_z, depth\n"
-        )
-        for datum in data:
-            f.write(
-                f"{datum.time:.2f}, {datum.dvl.x:.2f}, {datum.dvl.y:.2f}, {datum.dvl.z:.2f}, "
-                f"{datum.lin_acc.x:.2f}, {datum.lin_acc.y:.2f}, {datum.lin_acc.z:.2f}, "
-                f"{datum.ang_vel.x:.2f}, {datum.ang_vel.y:.2f}, {datum.ang_vel.z:.2f}, "
-                f"{datum.depth:.2f}\n"
-            )
+    # with open("data/sensor_data_largeCov.csv", "w") as f:
+    #     f.write(
+    #         "time, dvl_x, dvl_y, dvl_z, lin_acc_x, lin_acc_y, lin_acc_z, ang_vel_x, ang_vel_y, ang_vel_z, depth\n"
+    #     )
+    #     for datum in data:
+    #         f.write(
+    #             f"{datum.time:.2f}, {datum.dvl.x:.2f}, {datum.dvl.y:.2f}, {datum.dvl.z:.2f}, "
+    #             f"{datum.lin_acc.x:.2f}, {datum.lin_acc.y:.2f}, {datum.lin_acc.z:.2f}, "
+    #             f"{datum.ang_vel.x:.2f}, {datum.ang_vel.y:.2f}, {datum.ang_vel.z:.2f}, "
+    #             f"{datum.depth:.2f}\n"
+    #         )
 
 
 if __name__ == "__main__":
